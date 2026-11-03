@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "2000:2000"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
