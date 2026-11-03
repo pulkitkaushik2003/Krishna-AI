@@ -132,9 +132,6 @@ textarea::placeholder { color:var(--muted); }
   </header>
 
   <section class="panel" id="panel" aria-label="Settings">
-    <label for="url">Backend URL</label>
-    <input id="url" type="text" autocomplete="off" placeholder="http://127.0.0.1:2000">
-    <p class="hint">Use http://127.0.0.1:2000 for the VS Code backend, or paste the trycloudflare link from Colab.</p>
     <label>Accent color</label>
     <div class="sws">
       <button class="sw" data-a="indigo"  style="background:linear-gradient(135deg,#4F46E5,#7C3AED)" aria-label="Indigo"  aria-pressed="false"></button>
@@ -173,7 +170,7 @@ textarea::placeholder { color:var(--muted); }
 
 <script>
 const $ = s => document.querySelector(s);
-const chat = $("#chat"), input = $("#prompt"), sendBtn = $("#send"), urlEl = $("#url"), pill = $("#pill"),
+const chat = $("#chat"), input = $("#prompt"), sendBtn = $("#send"), pill = $("#pill"),
       pillText = $("#pillText"), panel = $("#panel"), toastEl = $("#toast"), empty = $("#empty");
 const root = document.documentElement;
 let ctrl = null, busy = false;
@@ -201,26 +198,12 @@ function md(text) {
 }
 
 // ---------- Settings: backend URL, connection badge, theme, accent ----------
-const getBase = () => urlEl.value.trim().replace(/\/+$/, "");
 function setPill(k, t) { pill.className = "pill " + k; pillText.textContent = t; }
 async function check(openOnFail) {
-  const base = getBase();
-  if (!base) { setPill("", "Not connected"); return; }
   setPill("", "Checking…");
-  try { const r = await fetch(base + "/health"); if (!r.ok) throw 0; setPill("ok", "Connected"); }
+  try { const r = await fetch("/health"); if (!r.ok) throw new Error("Health check failed"); setPill("ok", "Connected"); }
   catch (e) { setPill("bad", "Can’t reach backend"); if (openOnFail) panel.classList.add("open"); }
 }
-try {
-  const savedBackendUrl = localStorage.getItem("backendUrl");
-  urlEl.value = savedBackendUrl === "http://127.0.0.1:8000" || savedBackendUrl === "http://localhost:8000"
-    ? "http://127.0.0.1:2000"
-    : savedBackendUrl || "http://127.0.0.1:2000";
-} catch (e) { urlEl.value = "http://127.0.0.1:2000"; }
-let timer;
-urlEl.addEventListener("input", () => {
-  try { localStorage.setItem("backendUrl", getBase()); } catch (e) {}
-  clearTimeout(timer); timer = setTimeout(() => check(false), 600);
-});
 pill.addEventListener("click", () => panel.classList.toggle("open"));
 $("#theme").addEventListener("click", () => {
   const t = root.dataset.theme === "dark" ? "light" : "dark"; root.dataset.theme = t;
@@ -257,14 +240,13 @@ function setBusy(v) { busy = v; sendBtn.classList.toggle("busy", v); sendBtn.set
 function grow() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 180) + "px"; }
 
 async function send(text) {
-  text = (text || input.value).trim(); const base = getBase();
+  text = (text || input.value).trim();
   if (busy || !text) return;
-  if (!base) { panel.classList.add("open"); urlEl.focus(); return; }
   input.value = ""; grow(); addUser(text);
   const m = addAI(), body = m.querySelector(".body"); let out = "";
   setBusy(true); ctrl = new AbortController();
   try {
-    const r = await fetch(base + "/generate", { method: "POST", headers: { "Content-Type": "application/json" },
+    const r = await fetch("/generate", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: text }), signal: ctrl.signal });
     if (!r.ok) {
       let message = "Server returned " + r.status;
@@ -281,7 +263,7 @@ async function send(text) {
     body.innerHTML = md(out) || "<p>(empty response)</p>";
   } catch (e) {
     if (e.name === "AbortError") body.innerHTML = md(out) + '<p class="note">Stopped.</p>';
-    else { body.innerHTML = "<p>❌ <strong>Error:</strong> <code>" + esc(e.message) + "</code></p><p>Check that the backend is running and the URL is correct.</p>"; setPill("bad", "Can’t reach backend"); out = ""; }
+    else { body.innerHTML = "<p>❌ <strong>Error:</strong> <code>" + esc(e.message) + "</code></p><p>Check that the backend is running.</p>"; setPill("bad", "Can’t reach backend"); out = ""; }
   }
   setBusy(false); ctrl = null;
   if (out) addCopy(m, out);
