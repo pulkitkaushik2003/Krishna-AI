@@ -91,6 +91,10 @@ def generate():
         except Exception as e:
             last_error = e
             print(f"[{model}] failed before response: {e}")
+            if getattr(e, "code", None) in (401, 403):
+                return jsonify(
+                    error="Gemini rejected the API key. Create a new key in Google AI Studio, update GEMINI_API_KEY in .env, and restart the server."
+                ), 403
 
     if last_error and is_retryable(last_error):
         return jsonify(error="Gemini is temporarily unavailable. Please try again shortly."), 503
